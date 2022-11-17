@@ -17,5 +17,4 @@ Format of Project update presentation:
     - Two slides summarizing existing approaches
     - Two slides summarizing your approaches with preliminary results
 
-    - Zoom link: https://ucsd.zoom.us/j/8314692956
 

@@ -1,5 +1,5 @@
 %% MRI Image
-im = phantom('Modified Shepp-Logan', 255);
+im = phantom('Modified Shepp-Logan', 256);
 
 im_even = padarray(im,[1 1], 0 ,'post'); 
 
@@ -15,6 +15,14 @@ F_im = fftshift(fft2(ifftshift(im)))*ft_weight;
 figure; imshow(abs(F_im));
 title('Shepp-Logan K-space');
 
+%% https://people.eecs.berkeley.edu/~mlustig/Software.html <- Sparse MRI
+
+% 
+% TVWeight = 0.01; 	% Weight for TV penalty
+% xfmWeight = 0.00;	% Weight for Transform L1 penalty
+% Itnlim = 8;		% Number of iterations
+% 
+%  [pdf,val] = genPDF([256,256], 5, 0.33,1, 0, 1);
 
 %%
 L = 127;
@@ -44,7 +52,7 @@ rm_lines = rm_lines(1:end-1);
 
 
 
-kspace_choice = cat(2, 1:127, [128], flip(1:127));
+kspace_choice = cat(2, 1:127, [ 129], flip(1:127));
 kspace_choice = kspace_choice ./ 128;
 kspace_choice(rm_lines) = 0;
 kspace_choice(255-rm_lines) = 0;
@@ -55,11 +63,19 @@ plot(kspace_choice); axis tight;
 title("Data Line Importance")
 
 
-%% Create Sparce Image
+%% Create Sparse Image
+
+sparse_cart_mask = ones(size(im,1),size(im,2));
+sparse_cart_mask(rm_lines,:) = 0;
+sparse_cart_mask(255-rm_lines,:) = 0;
+
+
+figure; imshow(abs(sparse_cart_mask));
+title('Sparce Image Mask');
+
+%%
 % Center row is (128,:)
-sparse_k_space = F_im;
-sparse_k_space(rm_lines,:) = 0;
-sparse_k_space(255-rm_lines,:) = 0;
+sparse_k_space = F_im .* sparse_cart_mask;
 
 figure; imshow(abs(sparse_k_space));
 title('Shepp-Logan K-space');
@@ -73,6 +89,81 @@ sparse_image_even = padarray(sparse_image,[1 1], 0 ,'post');
 
 figure; imshow(abs(sparse_image));
 title('Sparse Shepp-Logan');
+
+
+
+
+%%
+
+y = sparse_k_space;
+
+ift_weight = sqrt(size(y,1)*size(y,2));
+x = fftshift(ifft2(ifftshift(y)))*ift_weight;
+
+figure; imshow(abs(x));
+title('Image with noise like artifacts');
+
+for i = 1:1
+
+        %[Wx_c, Wx_s] = wavedec2(x, 1, "db1");
+        [cA,cH,cV,cD] = dwt2(x, "sym2");
+        
+        
+        %figure; plot(abs(Wx_c));
+        
+%         figure;
+%         subplot(2,2,1); imshow(abs(cA));
+%         subplot(2,2,2); imshow(abs(cH));
+%         subplot(2,2,3); imshow(abs(cV));
+%         subplot(2,2,4); imshow(abs(cD));
+        
+        %Wx_c_thresh = Wx_c;
+        %Wx_c_thresh(Wx_c_thresh <= 0.20) = 0;
+        
+        %dn_x = waverec2(Wx_c_thresh, Wx_s, "db1");
+
+        cA_thresh = cA;
+        %cA_thresh(cA_thresh < 0.02) = 0;
+        cH_thresh = cH;
+        cH_thresh(cH_thresh < 0.02) = 0;
+        cV_thresh = cV;
+        cV_thresh(cV_thresh < 0.02) = 0;
+        cD_thresh = cD;
+        cD_thresh(cD_thresh < 0.02) = 0;
+%         figure; hold on;
+%         plot(abs(cA)); plot(abs(cA_thresh));
+%         hold off;
+
+        dn_x = idwt2(cA_thresh,cH_thresh,cV_thresh,cD_thresh,"sym2");
+        
+        %figure; imshow(abs(dn_x));
+
+        ft_weight = 1/sqrt(size(dn_x,1)*size(dn_x,2));
+        dn_x_kspace = fftshift(fft2(ifftshift(dn_x)))*ft_weight;
+        
+        %figure; imshow(abs(dn_x_kspace));
+        %title('K-Space of denoised image');
+        
+        Ax_kspace = dn_x_kspace .* sparse_cart_mask;
+        %figure; imshow(abs(Ax_kspace));
+        %title('K-Space of denoised image');
+
+        diff_kspace = Ax_kspace - y;
+        %figure; imshow(abs(diff_kspace));
+        %title('Difference K-Space Ax-y');
+
+        ift_weight = sqrt(size(diff_kspace,1)*size(diff_kspace,2));
+        diff_image = fftshift(ifft2(ifftshift(diff_kspace)))*ift_weight;
+        
+        %figure; imshow(abs(diff_image));
+        %title('Difference Image');
+
+        
+        x = x + diff_image;
+        figure; imshow(abs(x));
+        title('New X');
+
+end
 
 %% Wavelet Transform
 % wt = dddtree2(typetree,x,level,fdf,df)
@@ -105,6 +196,8 @@ for i = 1:x
         end
     end
 end
+
+
 %%
 
 imp = sort(abs(tempMatrix(:)),'descend');

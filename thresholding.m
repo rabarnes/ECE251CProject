@@ -14,7 +14,8 @@ F_imdata = fftshift(fft2(imdata)*ft_weight);
 
 %downsample, remove every mth row, keep middle third
 m= 4;
-mask = make_mask(rows,4);
+% mask = make_mask(rows,4);
+mask = make_gauss_mask(rows,0.3);
 F_imdata_sp = F_imdata.*mask;
 im_sp = ifft2(ifftshift(F_imdata_sp))/ft_weight;
 
@@ -47,7 +48,7 @@ for i = 1:4
     wav_dim = wav_dim2;
     curr_wav = C2(1:wav_dim, wav_dim*(i-1)+1:i*wav_dim);
     if i==2
-        C2(1:wav_dim, wav_dim*(i-1)+1:i*wav_dim) = threshold(curr_wav,20*thresh1);
+        C2(1:wav_dim, wav_dim*(i-1)+1:i*wav_dim) = threshold(curr_wav,thresh1);
     else
         C2(1:wav_dim, wav_dim*(i-1)+1:i*wav_dim) = threshold(curr_wav,thresh1);
     end
@@ -94,16 +95,16 @@ title("2D IFFT reconstructed Sampled Image")
 
 figure();
 subplot(2,2,1)
-imshow(abs(A2_th))
+imshow(abs(A1))
 title("Coarse Approximation Wavelet Coefficients")
 subplot(2,2,2)
-imshow(abs(H2_th))
+imshow(abs(H1))
 title("Horizontal Detail Wavelet Coefficients")
 subplot(2,2,3)
-imshow(abs(V2_th))
+imshow(abs(V1))
 title("Vertical Detail Wavelet Coefficients")
 subplot(2,2,4)
-imshow(abs(D2_th))
+imshow(abs(D1))
 title("Diagonal Detail Wavelet Coefficients")
 
 figure();

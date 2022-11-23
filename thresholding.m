@@ -2,7 +2,8 @@ close all
 brain = imread('brain.jpg');
 imdata = im2double(brain(:,:,1)); %black and white image, all layers same, conv to double [0 1]
 size_dif = size(imdata,1)-size(imdata,2);
-imdata = [zeros(size(imdata,1), size_dif/2) imdata zeros(size(imdata,1), size_dif/2)]; %evenly pad zeros to square image
+imdata = [zeros(size(imdata,1), size_dif/2 +1) imdata zeros(size(imdata,1), size_dif/2 +1)]; %evenly pad zeros to square image, make divisble by 4
+imdata = [imdata;zeros(2,size(imdata,2))];
 rows = size(imdata,1);
 cols = size(imdata,2);
 
@@ -19,25 +20,46 @@ im_sp = ifft2(ifftshift(F_imdata_sp))/ft_weight;
 
 
 %wavelet transform
-[C,S] = wavedec2(im_sp,2,'haar');
-[H1,V1,D1] = detcoef2('all',C,S,1); %take wavelet transform w/ haar filter, h,v,d are detail matrices
-A1 = appcoef2(C,S,'haar',1);
+[A1,H1,V1,D1] = dwt2(im_sp,'haar'); %take wavelet transform w/ haar filter, h,v,d are detail matrices, a is coarsest
+[A2, H2, V2, D2] = dwt2(A1, 'haar');
 
 % thresh_pct = 0.8; %set bottom x% to zero, use 5% value as threshold
 % C_sorted = sort(C,'ascend');
 % thresh = abs(C_sorted(round(thresh_pct*size(C,2))));
-thresh = abs(0.025*max(C));
+C1 = [A1 H1 V1 D1];
+C2 = [A2 H2 V2 D2];
+wav_dim1 = size(A1,1);
+wav_dim2 = size(A2,1);
+thresh1 = abs(0.01*max(C1,[],'all'));
 
-for i = 1:size(C,2)
-    if abs(C(i))<thresh
-        C(i) = 0;
-    else 
-        C(i) = C(i) - thresh*exp(1j*angle(C(i))); %soft thresholding, subtract threshold val from all other pixels
-    end
+for i = 2:4
+    wav_dim = wav_dim1;
+    curr_wav = C1(1:wav_dim, wav_dim*(i-1)+1:i*wav_dim);
+    C1(1:wav_dim, wav_dim*(i-1)+1:i*wav_dim) = threshold(curr_wav,thresh1);
 
 end
+% A_th = C1(1:wav_dim1,1:wav_dim1);
+H1_th = C1(1:wav_dim1,wav_dim1+1:2*wav_dim1);
+V1_th = C1(1:wav_dim1,2*wav_dim1+1:3*wav_dim1);
+D1_th = C1(1:wav_dim1,3*wav_dim1+1:4*wav_dim1);
 
-im_sp_th = waverec2(C,S,'haar'); %reconstructed image after thresholding
+for i = 1:4
+    wav_dim = wav_dim2;
+    curr_wav = C2(1:wav_dim, wav_dim*(i-1)+1:i*wav_dim);
+    if i==2
+        C2(1:wav_dim, wav_dim*(i-1)+1:i*wav_dim) = threshold(curr_wav,20*thresh1);
+    else
+        C2(1:wav_dim, wav_dim*(i-1)+1:i*wav_dim) = threshold(curr_wav,thresh1);
+    end
+end
+
+A2_th = C2(1:wav_dim2,1:wav_dim2);
+H2_th = C2(1:wav_dim2,wav_dim2+1:2*wav_dim2);
+V2_th = C2(1:wav_dim2,2*wav_dim2+1:3*wav_dim2);
+D2_th = C2(1:wav_dim2,3*wav_dim2+1:4*wav_dim2);
+
+A1_th = idwt2(A2_th,H2_th,V2_th,D2_th,'haar');
+im_sp_th = idwt2(A1_th,H1_th,V1_th,D1_th,'haar'); %reconstructed image after thresholding
 
 %go to k space and downsample
 F_sp_th = fftshift(fft2(im_sp_th)*ft_weight);
@@ -45,11 +67,11 @@ F_sp_th_masked = F_sp_th.*mask;
 
 
 %find err in k space and ifft to get difference image
-F_err = F_imdata_sp - F_sp_th_masked; %y - Ax error between 2D FFT recon and wavelet recon in k space
+F_err = F_sp_th_masked - F_imdata_sp; %Ax - y error between 2D FFT recon and wavelet recon in k space
 delta_im = ifft2(ifftshift(F_err))/ft_weight;
 
 %add diff im to original in image space
-new_im = im_sp - delta_im;
+new_im = im_sp + delta_im;
 new_F_imdata = fftshift(fft2(new_im)*ft_weight);
 
 %show images
@@ -72,16 +94,16 @@ title("2D IFFT reconstructed Sampled Image")
 
 figure();
 subplot(2,2,1)
-imshow(abs(A1))
+imshow(abs(A2_th))
 title("Coarse Approximation Wavelet Coefficients")
 subplot(2,2,2)
-imshow(abs(H1))
+imshow(abs(H2_th))
 title("Horizontal Detail Wavelet Coefficients")
 subplot(2,2,3)
-imshow(abs(V1))
+imshow(abs(V2_th))
 title("Vertical Detail Wavelet Coefficients")
 subplot(2,2,4)
-imshow(abs(D1))
+imshow(abs(D2_th))
 title("Diagonal Detail Wavelet Coefficients")
 
 figure();

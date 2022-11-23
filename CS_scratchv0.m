@@ -7,7 +7,7 @@ im = phantom('Modified Shepp-Logan',200);
 figure; imshow(abs(im));
 title('Shepp-Logan Image');
 
-%% step 1 measure k space
+%% step 1 generate measured k space
 % creating sampling mask and applying to image
 dim_im = size(im);
 num_pixels = dim_im(1) * dim_im(2);
@@ -30,8 +30,7 @@ gaussian_mask = zeros([dim_im(1) dim_im(2)]);
 for i=1:num_subsample
     gaussian_mask(R(i,1), R(i,2)) = 1;
 end
-% figure 
-% imshow(gaussian_mask);
+% figure imshow(gaussian_mask);
 % title('Gaussian Mask');
 
 % step 1 still
@@ -43,12 +42,15 @@ F_im = ((1-0)*(F_im- min(F_im(:)))) / (max(F_im(:))-min(F_im(:)));
 
 % create sparse image by multiplying mask & k-space
 F_im = F_im .* gaussian_mask;
-%     figure; imshow(abs(F_im));
 sparse_image = ifft2(ifftshift(F_im));
+sparse_image = ((1-0)*(sparse_image - min(sparse_image(:)))) / (max(sparse_image(:))-min(sparse_image(:)));
+figure; imshow(abs(sparse_image));
+title("Received image");
 
 [LoD,HiD,LoR, HiR] = wfilters('haar');
 
-n_max = 1;
+debug = 0;
+n_max = 100;
 n = 0;
 epsilon = 10;
 del = 10000;
@@ -59,112 +61,81 @@ while (n < n_max && del > epsilon)
     
     %% step 2 && 10
     sparse_image = sparse_image + difference_image;
-    sparse_image = abs(sparse_image);
     sparse_image = ((1-0)*(sparse_image - min(sparse_image(:)))) / (max(sparse_image(:))-min(sparse_image(:)));
-%     figure; imshow(abs(sparse_image));
-%     title('Sparse Shepp-Logan after masking FFT');
-    
+    if (debug == 1)
+        figure; imshow(abs(sparse_image));
+        title('reconstructed image after adding diff');
+    end
+
     %% step 3
     [cA,cH,cV,cD] = dwt2(sparse_image,LoD,HiD,'mode','symh');
-%     figure;
-%     imshow(abs(cA))
-%     title("low pass coef of wavelet transform of image")
-    
+    if (debug == 1) 
+        figure; imshow(abs(cA))
+        title("low pass of wavelet transform of image")
+    end
     
     %% step 4 thresholding
-    coef = cat(1, cA(:), cH(:), cV(:), cD(:));
-    u_coef = mean(coef);
-    mu_coef = (var(coef));
-    thresh = u_coef + mu_coef;
-    dim_coef = size(cA);
+    m = sort(abs([cA(:) ; cH(:) ; cV(:) ; cD(:)]), 'descend');
+    ndx = floor(length(m)*0.1);
+    thresh = m(ndx);
 
-    for j = 1:dim_coef(1)
-        for k = 1:dim_coef(2)
-            if cA(j,k) < thresh
-                cA(j,k) = 0;
-            else 
-                cA(j,k) = cA(j,k) - thresh;
-            end
-        end
+    cA_denoise = cA .* (abs(cA) > thresh);
+    cD_denoise = cD .* (abs(cD) > thresh);
+    cH_denoise = cH .* (abs(cH) > thresh);
+    cV_denoise = cV .* (abs(cV) > thresh);
+
+    if (debug == 1)
+        figure; imshow(abs(cA_denoise))
+        title("wavelet transform of image after thresh")
     end
 
-    for j = 1:dim_coef(1)
-        for k = 1:dim_coef(2)
-            if cH(j,k) < thresh
-                cH(j,k) = 0;
-            else 
-                cH(j,k) = cH(j,k) - thresh;
-            end
-        end
-    end
-
-    for j = 1:dim_coef(1)
-        for k = 1:dim_coef(2)
-            if cD(j,k) < thresh
-                cD(j,k) = 0;
-            else 
-                cD(j,k) = cD(j,k) - thresh;
-            end
-        end
-    end
-
-    for j = 1:dim_coef(1)
-        for k = 1:dim_coef(2)
-            if cV(j,k) < thresh
-                cV(j,k) = 0;
-            else 
-                cV(j,k) = cV(j,k) - thresh;
-            end
-        end
-    end
-
-%     figure; imshow(abs(cA))
-%     title("low pass coef of wavelet transform of image after thresh")
-    
     %% step 5 inv W trans
-    inv_c = idwt2(cA, cH, cV, cD, LoR, HiR);
-    inv_c = abs(inv_c);
-    %     figure; imshow(abs(inv_c));
-%     title('Reconstructed Wavelet image after thresholding')
-    
+    inv_c = idwt2(cA_denoise, cH_denoise, cV_denoise, cD_denoise, LoR, HiR);
+%     inv_c = ((1-0)*(inv_c - min(inv_c(:)))) / (max(inv_c(:))-min(inv_c(:)));
+
+    if (debug == 1)
+        figure; imshow(abs(inv_c));
+        title('Reconstructed Wavelet image after thresholding')
+    end
     %% step 6 k space of denoised img
     F_im_2 = fftshift(fft2(inv_c));
     F_im_2 = ((1-0)*(F_im_2 - min(F_im_2(:)))) / (max(F_im_2(:))-min(F_im_2(:)));
 
-%     figure; imshow(abs(F_im_2));
-%     title('Shepp-Logan K-space after wavelet filtering');
+    if (debug == 1)
+        figure; imshow(abs(F_im_2));
+        title('Shepp-Logan K-space after wavelet filtering');
+    end
     
     %% step 7 apply mask from step 1
     F_im_2 = F_im_2 .* gaussian_mask;
-%     figure; imshow(abs(F_im_2));
-%     title('Shepp-Logan K-space after applying mask');
-    
+    if (debug == 1)
+        figure; imshow(abs(F_im_2));
+        title('Shepp-Logan K-space after applying mask');
+    end
+
     %% step 8 find diff kspace
     error_im = F_im_2 - F_im;
-%     figure; imshow(abs(error_im));
-%     title('error image');
+
+    if (debug == 1)
+        figure; imshow(abs(error_im));
+        title('error image');
+    end
 
     %% step 9 find diff img
     difference_image = ifft2(ifftshift(error_im));
-    difference_image = abs(difference_image);
-    difference_image = ((1-0)*(difference_image - min(difference_image(:)))) / (max(difference_image(:))-min(difference_image(:)));
-%     figure; imshow(abs(difference_image));
-%     title('difference image');
-
+    if (debug == 1)
+        figure; imshow(abs(difference_image));
+        title('difference image');
+    end
     % calc delta and determine if need to continue optimizing image
-    del = sum(abs(difference_image(:)));
+%     del = sum(abs(difference_image(:)));
+    del = immse(difference_image, sparse_image);
     error_graph(n+1) = del; % save delta to plot at end
     n = n+1;
 end
 
-figure
-plot(error_graph);
-
-
-
-
-
-
+figure; plot(error_graph);
+figure; imshow(abs(sparse_image), []); title("final image");
 
 
 %% Wavelet Transform

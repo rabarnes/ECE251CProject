@@ -72,8 +72,11 @@ function [mask_out, percent_of_points] = make_spiral_mask(dim_im, density_knob)
             mask_temp(iC_phase(m,n)+1+circ_size, rC_phase(m,n)+1+circ_size) = 1;
         end
     end
+
+    temp1 = ((circ_size*2)-dim_im)/2;
+    temp2 = (circ_size*2)-temp1;
     
-    mask_out = mask_temp(55:310, 55:310);
+    mask_out = mask_temp(temp1+1:temp2, temp1+1:temp2);
     
     num_of_orig_data = dim_im*dim_im;
     num_of_spiral = sum(sum(mask_out));

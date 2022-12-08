@@ -1,4 +1,6 @@
-% close all;
+% script to find number of iterations until convergence
+
+close all;
 clc;
 clear;
 
@@ -42,31 +44,28 @@ im_sp = im_sp./PDF;
 % threshold_weight = 0.014; 
 
 %%% For Cartesian Settings
-iter_length = 8;
+iter_length = 30;
 threshold_weight = 0.016; %for cart
 
 
 im_final = zeros(rows,cols);
 mean_squared_error = ones(1, iter_length);
 peaksnr = ones(1, iter_length);
+n = 1;
+error = Inf;
+error_thresh = 1e-4;
 
-%%% For iterative DWT
-cA_hist = struct;
-cH_hist = struct;
-cV_hist = struct;
-cD_hist = struct;
-n_dwt = 2;
-dwt_fname = 'bior1.1';
-
-for n = 1:iter_length
+while (error > error_thresh) 
     % choose type of wavelet transform
-%     im_sp_th = dwtthresh(im_sp, 1, 'haar', threshold_weight);
+%     im_sp_th = dwtthresh(im_sp, 2, 'bior1.1', threshold_weight);
 %     im_sp_th = dualtreethresh(im_sp, 2, threshold_weight);
     im_sp_th = dddtreethresh(im_sp, 2, 'dddtf1', threshold_weight);
+
 
     %go to k space and downsample
     F_sp_th = fftshift(fft2(im_sp_th).*ft_weight);
     F_sp_th_masked = F_sp_th.*(1-mask);
+
 
     %find err in k space and ifft to get difference image (compare to original)
     F_err = F_sp_th_masked + F_imdata_sp; %Ax-y error between sampled original and wavelet recon in k space
@@ -80,6 +79,8 @@ for n = 1:iter_length
     im_final(im_final < 10^(-10)) = 0;
     mean_squared_error(n) = immse(imdata, abs(im_final));
     peaksnr(n) = psnr(imdata, abs(im_final));
+    error = mean_squared_error(n);
+    n = n+1;
 end
 
 minV = min(min(abs(imdata)));
@@ -134,7 +135,7 @@ function pdf = create_PDF(input_image)
 end
 
 function im_sp_th = dddtreethresh(im_sp, level, fname, threshold_weight)
-    wt = dddtree2('cplxdddt', abs(im_sp), level, fname); % self1, self2, or dddtf1
+    wt = dddtree2('cplxdddt', abs(im_sp), 1, fname); % self1, self2, or dddtf1
     dddLevel = numel(wt.cfs{1}(:)) / numel(wt.cfs{1}(:,:,1,1,1));
     for l = 1:dddLevel
         thresh = abs(threshold_weight*max(wt.cfs{1}(:,:,l), [], 'all'));
@@ -144,7 +145,7 @@ function im_sp_th = dddtreethresh(im_sp, level, fname, threshold_weight)
 end
 
 function im_sp_th = dualtreethresh(im_sp, level, threshold_weight)
-    [a, d] = dualtree2(abs(im_sp), 'Level', level);
+    [a, d] = dualtree2(abs(im_sp), 'Level', 1);
     for l = 1:numel(d)
         thresh = abs(threshold_weight*max(d{l}(:), [], 'all'));
         d{l} = threshold2(d{l}, thresh);

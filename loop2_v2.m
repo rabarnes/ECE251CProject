@@ -22,8 +22,10 @@ F_imdata = fftshift(fft2(imdata).*ft_weight);
 
 
 %%% Create Sampling Mask
-mask = make_mask(rows, 4);
+% mask = make_mask(rows, 4);
 % mask = make_gauss_mask(rows, 1);
+[mask, percent] = make_spiral_mask(rows, 1);
+percent
 % figure; imshow(mask); title("Mask Image");
 
 

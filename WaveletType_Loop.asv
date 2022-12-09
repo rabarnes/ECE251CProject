@@ -1,4 +1,4 @@
-function [mse, peak_snr] = WaveletType_Loop(wname,iter_length,imdata,test_iter)
+function [mse, peak_snr] = WaveletType_Loop(wname,iter_length,imdata)
 close all
 
 % brain = imread('brain.jpg');
@@ -16,11 +16,11 @@ ft_weight = 1/sqrt(size(imdata,1)*size(imdata,2));
 F_imdata = fftshift(fft2(imdata).*ft_weight);
 
 %Use gaussian mask for testing
-percent_sp = 0.1;
+percent_sp = 0.2;
 
 mse_iters = zeros(1,10);
 psnr_iters = zeros(1,10);
-for big_iter = 1:test_iter %run 10 sets of random masks and collect average data
+for big_iter = 1:1 %run 10 sets of random masks and collect average data
     mask = make_gauss_mask(rows,percent_sp);
     %figure; imshow(abs(mask));title("Mask Image");
 
@@ -75,25 +75,25 @@ for big_iter = 1:test_iter %run 10 sets of random masks and collect average data
         snr(n) = psnr(abs(im_final),imdata);
     end
 
-%     minV = min(min(abs(imdata)));
-%     maxV = max(max(abs(imdata)));
-%     figure;
-%     subplot(1,3,1); imshow(abs(imdata), [minV maxV]);
-%     title("Orignial Image");
-%     subplot(1,3,2); imshow(abs(im_og), [minV maxV]);
-%     title("Sparse Image");
-%     subplot(1,3,3); imshow(abs(im_final), [minV maxV]);
-%     title("Final image");
-%     
-%     
-%     figure; plot(mean_squared_error)
-%     title("Mean Square Error vs Iterations")
-%     
-%     figure; plot(snr)
-%     title("Peak SNR vs iterations")
-%     
-%     disp("Final MSE: "+mean_squared_error(end));
-%     disp("Final PSNR: "+snr(end));
+    minV = min(min(abs(imdata)));
+    maxV = max(max(abs(imdata)));
+    figure;
+    subplot(1,3,1); imshow(abs(imdata), [minV maxV]);
+    title("Orignial Image");
+    subplot(1,3,2); imshow(abs(im_og), [minV maxV]);
+    title("Sparse Image");
+    subplot(1,3,3); imshow(abs(im_final), [minV maxV]);
+    title("Final image");
+    
+    
+    figure; plot(mean_squared_error)
+    title("Mean Square Error vs Iterations")
+    
+    figure; plot(snr)
+    title("Peak SNR vs iterations")
+    
+    disp("Final MSE: "+mean_squared_error(end));
+    disp("Final PSNR: "+snr(end));
     mse_iters(big_iter) = mean_squared_error(end);
     psnr_iters(big_iter) = snr(end)-snr(1);
 

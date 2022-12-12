@@ -1,11 +1,16 @@
 % close all;
 clc;
 clear;
+s = rng(1);
 
+% last test, wavelet level 1 vs wavelet level 6
 
 %%% MRI Image
 imdata = phantom('Modified Shepp-Logan', 256);
 % figure; imshow(abs(imdata)); title('Shepp-Logan Image');
+% brain = imread('brain3.jpeg');
+% imdata = imresize(brain, [512 512]);
+% imdata = im2double(imdata(:,:,1)); %black and white image, all layers same, conv to double [0 1]
 
 
 %%% Create Probability Density Function - PDF
@@ -23,7 +28,7 @@ F_imdata = fftshift(fft2(imdata).*ft_weight);
 
 
 %%% Create Sampling Mask
-mask = make_mask(rows, 4);
+mask = make_mask(rows, 3);
 % mask = make_gauss_mask(rows, 1);
 % figure; imshow(mask); title("Mask Image");
 
@@ -33,16 +38,16 @@ mask = make_mask(rows, 4);
 F_imdata_sp = F_imdata.*mask;
 im_sp = ifft2(ifftshift(F_imdata_sp))./ft_weight;
 im_sp = im_sp./(abs(max(im_sp,[],'all')));
+% im_og = im_sp;
+% im_sp = im_sp./PDF;
 im_og = im_sp;
-im_sp = im_sp./PDF;
-
 
 %%% For Gaussian Settings
 % iter_length = 75;
 % threshold_weight = 0.014; 
 
 %%% For Cartesian Settings
-iter_length = 8;
+iter_length = 30;
 threshold_weight = 0.016; %for cart
 
 
@@ -50,17 +55,12 @@ im_final = zeros(rows,cols);
 mean_squared_error = ones(1, iter_length);
 peaksnr = ones(1, iter_length);
 
-%%% For iterative DWT
-cA_hist = struct;
-cH_hist = struct;
-cV_hist = struct;
-cD_hist = struct;
 n_dwt = 2;
 dwt_fname = 'bior1.1';
 
 for n = 1:iter_length
     % choose type of wavelet transform
-%     im_sp_th = dwtthresh(im_sp, 1, 'haar', threshold_weight);
+%     im_sp_th = dwtthresh(im_sp, 6, 'haar', threshold_weight);
 %     im_sp_th = dualtreethresh(im_sp, 2, threshold_weight);
     im_sp_th = dddtreethresh(im_sp, 2, 'dddtf1', threshold_weight);
 

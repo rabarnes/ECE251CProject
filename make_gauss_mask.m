@@ -1,4 +1,4 @@
-function gaussian_mask = make_gauss_mask(dim_im, percent_sample)
+function [gaussian_mask, percent_of_points] = make_gauss_mask(dim_im, percent_sample)
 
 % dim_im = size(im);
 num_pixels = dim_im * dim_im;
@@ -21,5 +21,9 @@ gaussian_mask = zeros([dim_im dim_im]);
 for i=1:num_subsample
     gaussian_mask(R(i,1), R(i,2)) = 1;
 end
+
+num_of_orig_data = dim_im*dim_im;
+num_of_gauss = sum(sum(gaussian_mask));
+percent_of_points = num_of_gauss/num_of_orig_data *100;
 
 end

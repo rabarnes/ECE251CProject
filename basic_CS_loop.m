@@ -1,4 +1,4 @@
-function [imdata, im_og, im_final, mean_squared_error, peaksnr] = basic_CS_loop(imdata,PDF, mask, iter_length, threshold_weight)
+function [imdata, im_og, im_final, mean_squared_error, peaksnr] = basic_CS_loop(imdata,PDF, mask,wnames, iter_length, threshold_weight)
 rows = size(imdata,1);
 cols = size(imdata,2);
 
@@ -21,8 +21,8 @@ peaksnr = ones(1, iter_length);
 
 for n = 1:iter_length
     %wavelet transform
-    [A1,H1,V1,D1] = dwt2(im_sp,'haar'); %take wavelet transform w/ haar filter, h,v,d are detail matrices, a is coarsest
-    [A2, H2, V2, D2] = dwt2(A1, 'haar');
+    [A1,H1,V1,D1] = dwt2(im_sp, wnames); %take wavelet transform w/ haar filter, h,v,d are detail matrices, a is coarsest
+    [A2, H2, V2, D2] = dwt2(A1, wnames);
 
     % thresh_pct = 0.8; %set bottom x% to zero, use 5% value as threshold
     % C_sorted = sort(C,'ascend');
@@ -56,8 +56,8 @@ for n = 1:iter_length
     V2_th = C2(1:wav_dim2,2*wav_dim2+1:3*wav_dim2);
     D2_th = C2(1:wav_dim2,3*wav_dim2+1:4*wav_dim2);
 
-    A1_th = idwt2(A2_th,H2_th,V2_th,D2_th,'haar');
-    im_sp_th = idwt2(A1_th,H1_th,V1_th,D1_th,'haar'); %reconstructed image after thresholding
+    A1_th = idwt2(A2_th,H2_th,V2_th,D2_th, wnames);
+    im_sp_th = idwt2(A1_th,H1_th,V1_th,D1_th, wnames); %reconstructed image after thresholding
     %go to k space and downsample
     F_sp_th = fftshift(fft2(im_sp_th).*ft_weight);
     F_sp_th_masked = F_sp_th.*(1-mask);
